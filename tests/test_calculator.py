@@ -40,8 +40,10 @@ class TestShiftPay(unittest.TestCase):
             )
         )
         self.assertEqual(estimate.holiday_pay, 800.00)
-        self.assertEqual(estimate.ot_hours, 5.0)
-        self.assertEqual(estimate.ot_pay, 300.00)
+        self.assertEqual(estimate.ot_hours, 0.0)
+        self.assertEqual(estimate.ot_pay, 0.0)
+        self.assertEqual(estimate.regular_pay, 1400.00)
+        self.assertEqual(estimate.total_pay, 2200.00)
 
     def test_shift_differential(self) -> None:
         estimate = estimate_shift_pay(
@@ -62,10 +64,10 @@ class TestShiftPay(unittest.TestCase):
             )
         )
         self.assertEqual(estimate.holiday_pay, 450.00)
-        self.assertEqual(estimate.ot_hours, 6.0)
-        self.assertEqual(estimate.ot_pay, 360.00)
+        self.assertEqual(estimate.ot_hours, 0.0)
+        self.assertEqual(estimate.ot_pay, 0.0)
         self.assertEqual(estimate.regular_pay, 1080.00)
-        self.assertEqual(estimate.total_pay, 1890.00)
+        self.assertEqual(estimate.total_pay, 1530.00)
 
     def test_zero_hours(self) -> None:
         estimate = estimate_shift_pay(ShiftInputs(base_rate=35.0, hours_worked=0.0))
@@ -80,6 +82,62 @@ class TestShiftPay(unittest.TestCase):
         data = estimate.as_dict()
         self.assertEqual(data["total_pay"], 100.00)
         self.assertEqual(data["base_rate"], 20.0)
+
+    def test_weekly_hours_accumulate_ot(self) -> None:
+        estimate = estimate_shift_pay(
+            ShiftInputs(
+                base_rate=35.0,
+                hours_worked=12.0,
+                weekly_hours_so_far=35.0,
+            )
+        )
+        self.assertEqual(estimate.ot_hours, 7.0)
+        self.assertEqual(estimate.regular_pay, 175.00)
+        self.assertEqual(estimate.ot_pay, 367.50)
+        self.assertEqual(estimate.total_pay, 542.50)
+
+    def test_weekly_hours_already_over_threshold(self) -> None:
+        estimate = estimate_shift_pay(
+            ShiftInputs(
+                base_rate=35.0,
+                hours_worked=8.0,
+                weekly_hours_so_far=42.0,
+            )
+        )
+        self.assertEqual(estimate.ot_hours, 8.0)
+        self.assertEqual(estimate.regular_pay, 0.00)
+        self.assertEqual(estimate.ot_pay, 420.00)
+
+    def test_holiday_with_weekly_accumulation(self) -> None:
+        estimate = estimate_shift_pay(
+            ShiftInputs(
+                base_rate=40.0,
+                hours_worked=12.0,
+                holiday_hours=4.0,
+                weekly_hours_so_far=38.0,
+            )
+        )
+        self.assertEqual(estimate.holiday_pay, 320.00)
+        self.assertEqual(estimate.regular_pay, 80.00)
+        self.assertEqual(estimate.ot_hours, 6.0)
+        self.assertEqual(estimate.ot_pay, 360.00)
+        self.assertEqual(estimate.total_pay, 760.00)
+
+    def test_negative_base_rate_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            estimate_shift_pay(ShiftInputs(base_rate=-10.0, hours_worked=5.0))
+
+    def test_negative_hours_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            estimate_shift_pay(ShiftInputs(base_rate=20.0, hours_worked=-3.0))
+
+    def test_holiday_hours_exceed_total_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            estimate_shift_pay(ShiftInputs(base_rate=20.0, hours_worked=5.0, holiday_hours=8.0))
+
+    def test_negative_weekly_hours_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            estimate_shift_pay(ShiftInputs(base_rate=20.0, hours_worked=5.0, weekly_hours_so_far=-1.0))
 
 
 if __name__ == "__main__":

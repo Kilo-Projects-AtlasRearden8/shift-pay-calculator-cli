@@ -17,6 +17,7 @@ class ShiftInputs:
     ot_multiplier: float = 1.5
     differential_rate: float = 0.0
     differential_hours: float = 0.0
+    weekly_hours_so_far: float = 0.0
 
 
 @dataclass
@@ -31,6 +32,7 @@ class ShiftEstimate:
     ot_multiplier: float
     differential_rate: float
     differential_hours: float
+    weekly_hours_so_far: float
     holiday_pay: float
     regular_pay: float
     ot_hours: float
@@ -48,6 +50,7 @@ class ShiftEstimate:
             "ot_multiplier": self.ot_multiplier,
             "differential_rate": self.differential_rate,
             "differential_hours": self.differential_hours,
+            "weekly_hours_so_far": self.weekly_hours_so_far,
             "holiday_pay": self.holiday_pay,
             "regular_pay": self.regular_pay,
             "ot_hours": self.ot_hours,
@@ -62,9 +65,12 @@ def estimate_shift_pay(inputs: ShiftInputs) -> ShiftEstimate:
 
     Rules (education-only simplified model):
       * Holiday hours are paid at base_rate * holiday_multiplier.
-      * Non-holiday hours up to ot_threshold are paid at base_rate.
-      * Hours over ot_threshold are paid at base_rate * ot_multiplier.
+      * Non-holiday hours up to the weekly OT threshold are paid at base_rate.
+      * Non-holiday hours past the weekly OT threshold are paid at
+        base_rate * ot_multiplier.
       * Shift differential is a flat extra amount per differential hour.
+      * weekly_hours_so_far counts hours already worked this week so OT
+        accumulates across multiple shifts.
     """
 
     base_rate = inputs.base_rate
@@ -75,11 +81,34 @@ def estimate_shift_pay(inputs: ShiftInputs) -> ShiftEstimate:
     ot_multiplier = inputs.ot_multiplier
     differential_rate = inputs.differential_rate
     differential_hours = inputs.differential_hours
+    weekly_hours_so_far = inputs.weekly_hours_so_far
+
+    if base_rate < 0:
+        raise ValueError("base_rate cannot be negative")
+    if hours_worked < 0:
+        raise ValueError("hours_worked cannot be negative")
+    if holiday_hours < 0:
+        raise ValueError("holiday_hours cannot be negative")
+    if holiday_hours > hours_worked:
+        raise ValueError("holiday_hours cannot exceed hours_worked")
+    if holiday_multiplier < 0:
+        raise ValueError("holiday_multiplier cannot be negative")
+    if ot_threshold < 0:
+        raise ValueError("ot_threshold cannot be negative")
+    if ot_multiplier < 0:
+        raise ValueError("ot_multiplier cannot be negative")
+    if differential_rate < 0:
+        raise ValueError("differential_rate cannot be negative")
+    if differential_hours < 0:
+        raise ValueError("differential_hours cannot be negative")
+    if weekly_hours_so_far < 0:
+        raise ValueError("weekly_hours_so_far cannot be negative")
 
     holiday_pay = round(holiday_hours * base_rate * holiday_multiplier, 2)
     non_holiday_hours = hours_worked - holiday_hours
-    regular_hours = max(0.0, min(non_holiday_hours, ot_threshold))
-    ot_hours = max(0.0, hours_worked - ot_threshold)
+    remaining_regular_hours = max(0.0, ot_threshold - weekly_hours_so_far)
+    regular_hours = max(0.0, min(non_holiday_hours, remaining_regular_hours))
+    ot_hours = max(0.0, non_holiday_hours - remaining_regular_hours)
     regular_pay = round(regular_hours * base_rate, 2)
     ot_pay = round(ot_hours * base_rate * ot_multiplier, 2)
     differential_pay = round(differential_hours * differential_rate, 2)
@@ -94,6 +123,7 @@ def estimate_shift_pay(inputs: ShiftInputs) -> ShiftEstimate:
         ot_multiplier=ot_multiplier,
         differential_rate=differential_rate,
         differential_hours=differential_hours,
+        weekly_hours_so_far=weekly_hours_so_far,
         holiday_pay=holiday_pay,
         regular_pay=regular_pay,
         ot_hours=ot_hours,

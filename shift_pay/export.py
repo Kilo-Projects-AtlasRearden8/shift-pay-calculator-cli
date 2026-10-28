@@ -15,6 +15,7 @@ FIELDNAMES = [
     "ot_multiplier",
     "differential_rate",
     "differential_hours",
+    "weekly_hours_so_far",
     "holiday_pay",
     "regular_pay",
     "ot_hours",

@@ -66,6 +66,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.0,
         help="Hours eligible for the shift differential (default: 0).",
     )
+    calc.add_argument(
+        "--weekly-hours-so-far",
+        type=float,
+        default=0.0,
+        help="Hours already worked this week before this shift (default: 0).",
+    )
     calc.add_argument("--note", default="", help="Optional note saved with the log entry.")
     calc.add_argument(
         "--no-log",
@@ -101,23 +107,32 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "calculate":
-        inputs = ShiftInputs(
-            base_rate=args.rate,
-            hours_worked=args.hours,
-            holiday_hours=args.holiday_hours,
-            holiday_multiplier=args.holiday_multiplier,
-            ot_threshold=args.ot_threshold,
-            ot_multiplier=args.ot_multiplier,
-            differential_rate=args.differential,
-            differential_hours=args.differential_hours,
-        )
-        estimate = estimate_shift_pay(inputs)
+        try:
+            inputs = ShiftInputs(
+                base_rate=args.rate,
+                hours_worked=args.hours,
+                holiday_hours=args.holiday_hours,
+                holiday_multiplier=args.holiday_multiplier,
+                ot_threshold=args.ot_threshold,
+                ot_multiplier=args.ot_multiplier,
+                differential_rate=args.differential,
+                differential_hours=args.differential_hours,
+                weekly_hours_so_far=args.weekly_hours_so_far,
+            )
+            estimate = estimate_shift_pay(inputs)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return 1
 
         print(f"Base pay:       ${estimate.regular_pay:.2f}")
         print(f"Holiday pay:    ${estimate.holiday_pay:.2f}")
         print(f"Overtime ({estimate.ot_hours:.1f}h): ${estimate.ot_pay:.2f}")
         print(f"Differential:   ${estimate.differential_pay:.2f}")
         print(f"{'Total pay:':<16}${estimate.total_pay:.2f}")
+        if estimate.weekly_hours_so_far:
+            print(
+                f"Weekly total:   {estimate.weekly_hours_so_far + estimate.hours_worked:.1f}h"
+            )
         print()
         print(DISCLAIMER)
 
