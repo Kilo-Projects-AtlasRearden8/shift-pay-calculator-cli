@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shift-pay-calculator"
+version = "0.1.0"
+description = "Local CLI for healthcare workers to estimate shift pay (education only, not a pay stub)."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Asdale Dynamics, LLC" }]
+license = { text = "MIT" }
+keywords = ["healthcare", "shift-pay", "cli", "nursing"]
+
+[project.scripts]
+shift-pay = "shift_pay.cli:main"
+
+[tool.setuptools]
+packages = ["shift_pay"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

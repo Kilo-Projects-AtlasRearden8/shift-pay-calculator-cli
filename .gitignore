@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+shift_pay_log.json
+*.csv
+.venv/
+.env
